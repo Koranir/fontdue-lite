@@ -635,3 +635,261 @@ impl Font {
         self.glyphs.len() as u16
     }
 }
+
+pub struct GlyphRaster {
+    pub data: Vec<u8>,
+    pub format: GlyphRasterFormat,
+    pub is_mask: bool,
+    pub metrics: Metrics,
+    pub should_rescale: Option<f32>,
+}
+pub enum GlyphRasterFormat {
+    RGBA8,
+    RGB8,
+    R8,
+}
+pub struct GlyphRasterConfig2 {
+    pub subpixel: bool,
+    pub offset: (f32, f32),
+    pub palette: u16,
+    pub fg_color: ttf_parser::RgbaColor,
+    pub auto_scale: bool,
+    pub vertical: bool,
+    pub premultiply: bool,
+    pub gamma_correct: Option<f32>,
+}
+pub fn rasterize(
+    face: &ttf_parser::Face,
+    id: ttf_parser::GlyphId,
+    ppm: f32,
+    config: GlyphRasterConfig2,
+) -> Option<GlyphRaster> {
+    if ppm <= 0.0 {
+        return None;
+    }
+
+    let mut glyph = Glyph::default();
+    if let Some(advance_width) = face.glyph_hor_advance(id) {
+        glyph.advance_width = advance_width as f32;
+    }
+    if let Some(advance_height) = face.glyph_ver_advance(id) {
+        glyph.advance_height = advance_height as f32;
+    }
+
+    let mut geometry = Geometry::new(ppm, face.units_per_em() as f32);
+    if let Some(_) = face.outline_glyph(id, &mut geometry) {
+        geometry.finalize(&mut glyph);
+
+        let scale = ppm / face.units_per_em() as f32;
+        let (metrics, offset_x, offset_y) = metrics_raw(&glyph, scale, config.offset.0, config.offset.1);
+        let mut canvas = Raster::new(
+            metrics.width
+                * if config.subpixel {
+                    3
+                } else {
+                    1
+                },
+            metrics.height,
+        );
+        if config.subpixel {
+            canvas.draw(&glyph, scale * 3.0, scale, offset_x, offset_y);
+        } else {
+            canvas.draw(&glyph, scale, scale, offset_x, offset_y);
+        }
+        return Some(GlyphRaster {
+            data: canvas.get_bitmap(),
+            format: if config.subpixel {
+                GlyphRasterFormat::RGB8
+            } else {
+                GlyphRasterFormat::R8
+            },
+            is_mask: true,
+            metrics,
+            should_rescale: None,
+        });
+    }
+
+    if let Some(v) = face.glyph_raster_image(id, ppm as u16) {
+        match v.format {
+            ttf_parser::RasterImageFormat::PNG => {
+                let mut pixmap = tiny_skia::Pixmap::decode_png(v.data).ok()?;
+                let scale = ppm / v.pixels_per_em as f32;
+
+                let metrics = if config.auto_scale {
+                    let n_width = (pixmap.width() as f32 * scale) as u32;
+                    let n_height = (pixmap.height() as f32 * scale) as u32;
+
+                    let mut n_pixmap = tiny_skia::Pixmap::new(n_width, n_height)?;
+                    n_pixmap.as_mut().draw_pixmap(
+                        0,
+                        0,
+                        pixmap.as_ref(),
+                        &tiny_skia::PixmapPaint {
+                            opacity: 1.0,
+                            blend_mode: tiny_skia::BlendMode::Source,
+                            quality: tiny_skia::FilterQuality::Bilinear,
+                        },
+                        tiny_skia::Transform::identity().pre_scale(scale, scale),
+                        None,
+                    );
+                    pixmap = n_pixmap;
+
+                    Metrics {
+                        xmin: as_i32(floor(v.x as f32 * scale)),
+                        ymin: as_i32(floor(v.y as f32 * scale)),
+                        width: pixmap.width() as _,
+                        height: pixmap.height() as _,
+                        advance_width: face.glyph_hor_advance(id).unwrap_or(if config.vertical {
+                            0
+                        } else {
+                            pixmap.width() as _
+                        }) as f32,
+                        advance_height: face.glyph_ver_advance(id).unwrap_or(if config.vertical {
+                            pixmap.height() as _
+                        } else {
+                            0
+                        }) as f32,
+                        bounds: OutlineBounds {
+                            xmin: v.x as f32 * scale,
+                            ymin: v.y as f32 * scale,
+                            width: pixmap.width() as _,
+                            height: pixmap.height() as _,
+                        },
+                    }
+                } else {
+                    Metrics {
+                        xmin: v.x as _,
+                        ymin: v.y as _,
+                        width: pixmap.width() as _,
+                        height: pixmap.height() as _,
+                        advance_width: face.glyph_hor_advance(id).unwrap_or(if config.vertical {
+                            0
+                        } else {
+                            pixmap.width() as _
+                        }) as f32,
+                        advance_height: face.glyph_ver_advance(id).unwrap_or(if config.vertical {
+                            pixmap.height() as _
+                        } else {
+                            0
+                        }) as f32,
+                        bounds: OutlineBounds {
+                            xmin: v.x as _,
+                            ymin: v.y as _,
+                            width: pixmap.width() as _,
+                            height: pixmap.height() as _,
+                        },
+                    }
+                };
+
+                if !config.premultiply {
+                    pixmap.pixels_mut().iter_mut().for_each(|f| {
+                        *f = unsafe {
+                            core::mem::transmute::<tiny_skia::ColorU8, tiny_skia::PremultipliedColorU8>(
+                                f.demultiply(),
+                            )
+                        }
+                    })
+                }
+
+                return Some(GlyphRaster {
+                    data: pixmap.take(),
+                    format: GlyphRasterFormat::RGBA8,
+                    is_mask: false,
+                    metrics,
+                    should_rescale: (!config.auto_scale).then_some(scale),
+                });
+            }
+            ttf_parser::RasterImageFormat::BitmapMono => todo!(),
+            ttf_parser::RasterImageFormat::BitmapMonoPacked => todo!(),
+            ttf_parser::RasterImageFormat::BitmapGray2 => todo!(),
+            ttf_parser::RasterImageFormat::BitmapGray2Packed => todo!(),
+            ttf_parser::RasterImageFormat::BitmapGray4 => todo!(),
+            ttf_parser::RasterImageFormat::BitmapGray4Packed => todo!(),
+            ttf_parser::RasterImageFormat::BitmapGray8 => todo!(),
+            ttf_parser::RasterImageFormat::BitmapPremulBgra32 => todo!(),
+        }
+    }
+
+    struct PainterGeometry {}
+    impl ttf_parser::colr::Painter<'_> for PainterGeometry {
+        fn outline_glyph(&mut self, glyph_id: GlyphId) {
+            todo!()
+        }
+
+        fn paint(&mut self, paint: ttf_parser::colr::Paint<'_>) {
+            todo!()
+        }
+
+        fn push_clip(&mut self) {
+            todo!()
+        }
+
+        fn push_clip_box(&mut self, clipbox: ttf_parser::colr::ClipBox) {
+            todo!()
+        }
+
+        fn pop_clip(&mut self) {
+            todo!()
+        }
+
+        fn push_layer(&mut self, mode: ttf_parser::colr::CompositeMode) {
+            todo!()
+        }
+
+        fn pop_layer(&mut self) {
+            todo!()
+        }
+
+        fn push_translate(&mut self, tx: f32, ty: f32) {
+            todo!()
+        }
+
+        fn push_scale(&mut self, sx: f32, sy: f32) {
+            todo!()
+        }
+
+        fn push_rotate(&mut self, angle: f32) {
+            todo!()
+        }
+
+        fn push_skew(&mut self, skew_x: f32, skew_y: f32) {
+            todo!()
+        }
+
+        fn push_transform(&mut self, transform: ttf_parser::Transform) {
+            todo!()
+        }
+
+        fn pop_transform(&mut self) {
+            todo!()
+        }
+    }
+    let mut painter = PainterGeometry {};
+    if let Some(()) = face.paint_color_glyph(id, config.palette, config.fg_color, &mut painter) {
+        return None;
+    }
+
+    None
+}
+
+fn metrics_raw(glyph: &Glyph, scale: f32, offset_x: f32, offset_y: f32) -> (Metrics, f32, f32) {
+    let bounds = glyph.bounds.scale(scale);
+    let mut offset_x = fract(bounds.xmin + offset_x);
+    let mut offset_y = fract(1.0 - fract(bounds.height) - fract(bounds.ymin) + offset_y);
+    if is_negative(offset_x) {
+        offset_x += 1.0;
+    }
+    if is_negative(offset_y) {
+        offset_y += 1.0;
+    }
+    let metrics = Metrics {
+        xmin: as_i32(floor(bounds.xmin)),
+        ymin: as_i32(floor(bounds.ymin)),
+        width: as_i32(ceil(bounds.width + offset_x)) as usize,
+        height: as_i32(ceil(bounds.height + offset_y)) as usize,
+        advance_width: scale * glyph.advance_width,
+        advance_height: scale * glyph.advance_height,
+        bounds,
+    };
+    (metrics, offset_x, offset_y)
+}

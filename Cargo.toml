@@ -1,5 +1,5 @@
 [package]
-name = "fontdue"
+name = "krh_fontdue"
 version = "0.8.0"
 authors = ["Joe Cumbo <mooman219@gmail.com>"]
 license = "MIT OR Apache-2.0 OR Zlib"
@@ -17,15 +17,17 @@ exclude = ["dev/**"]
 maintenance = { status = "experimental" }
 
 [features]
-default = ["simd"]
+default = ["simd", "png", "colr", "variable-fonts", "opentype-layout"]
+std = ["ttf-parser/std"]
+no-std = ["tiny-skia/no-std-float"]
 # Enable this flag to leverage SIMD usage on x86/x86_64 platforms.
-simd = []
-# Enable this flag to parallelize font loading using threads.
-parallel = ["rayon", "hashbrown/rayon"]
+simd = ["tiny-skia/simd"]
+png = ["tiny-skia/png-format", "std"]
+colr = ["tiny-skia"]
+variable-fonts = ["ttf-parser/variable-fonts"]
+opentype-layout = ["ttf-parser/opentype-layout"]
 
 [dependencies]
-ttf-parser = { version = "0.20", default-features = false, features = [
-    "opentype-layout",
-] }
+ttf-parser = { version = "0.21.1", default-features = false }
 hashbrown = "0.14"
-rayon = { version = "1.5.1", optional = true }
+tiny-skia = { version = "0.11.4", optional = true, default-features = false }
