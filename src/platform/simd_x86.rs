@@ -20,12 +20,7 @@ impl f32x4 {
     #[inline(always)]
     pub fn new_u32(x0: u32, x1: u32, x2: u32, x3: u32) -> Self {
         f32x4(unsafe {
-            _mm_set_ps(
-                core::mem::transmute::<u32, f32>(x3),
-                core::mem::transmute::<u32, f32>(x2),
-                core::mem::transmute::<u32, f32>(x1),
-                core::mem::transmute::<u32, f32>(x0),
-            )
+            _mm_set_ps(f32::from_bits(x3), f32::from_bits(x2), f32::from_bits(x1), f32::from_bits(x0))
         })
     }
 

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod as_i32;
 mod atan;
 mod atan2;
@@ -10,8 +12,11 @@ mod trunc;
 
 pub use as_i32::*;
 pub use atan::*;
+#[allow(unused_imports)]
 pub use atan2::*;
+#[allow(unused_imports)]
 pub use ceil::*;
+#[allow(unused_imports)]
 pub use floor::*;
 pub use fract::*;
 pub use get_bitmap::*;

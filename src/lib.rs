@@ -2,32 +2,13 @@
 //!
 //! This is a no_std crate, but still requires the alloc crate.
 
-#![cfg_attr(all(not(test), not(feature = "std")), no_std)]
-#![allow(dead_code)]
-#![allow(clippy::style)]
-#![allow(clippy::complexity)]
-#![allow(clippy::misnamed_getters)]
+#![cfg_attr(all(not(test)), no_std)]
 
 extern crate alloc;
 
-// mod font;
-// mod hash;
-/// Tools for laying out strings of text.
-// pub mod layout;
 mod math;
 mod platform;
 mod raster;
-// mod table;
-// mod unicode;
 
 pub use math::{FinalizedGeometry, Geometry, OutlineBuilder};
 pub use raster::Raster;
-// pub use crate::font::*;
-
-// #[cfg(feature = "hashbrown")]
-// pub(crate) use hashbrown::{HashMap, HashSet};
-// #[cfg(not(feature = "hashbrown"))]
-// pub(crate) use std::collections::{HashMap, HashSet};
-
-// Alias for Result<T, &'static str>.
-// pub type FontResult<T> = Result<T, &'static str>;

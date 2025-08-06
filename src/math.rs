@@ -1,4 +1,4 @@
-use crate::platform::{self, abs, atan2, f32x4, sqrt};
+use crate::platform::{self, abs, f32x4, sqrt};
 // use crate::{Glyph, OutlineBounds};
 use alloc::vec;
 use alloc::vec::*;
@@ -44,37 +44,6 @@ impl CubeCurve {
         }
     }
 
-    fn scale(&self, scale: f32) -> CubeCurve {
-        CubeCurve {
-            a: self.a.scale(scale),
-            b: self.b.scale(scale),
-            c: self.c.scale(scale),
-            d: self.d.scale(scale),
-        }
-    }
-
-    fn is_flat(&self, threshold: f32) -> bool {
-        let (d1, d2, d3, d4) = f32x4::new(
-            self.a.distance_squared(self.b),
-            self.b.distance_squared(self.c),
-            self.c.distance_squared(self.d),
-            self.a.distance_squared(self.d),
-        )
-        .sqrt()
-        .copied();
-        (d1 + d2 + d3) < threshold * d4
-    }
-
-    fn split(&self) -> (CubeCurve, CubeCurve) {
-        let q0 = self.a.midpoint(self.b);
-        let q1 = self.b.midpoint(self.c);
-        let q2 = self.c.midpoint(self.d);
-        let r0 = q0.midpoint(q1);
-        let r1 = q1.midpoint(q2);
-        let s0 = r0.midpoint(r1);
-        (CubeCurve::new(self.a, q0, r0, s0), CubeCurve::new(s0, r1, q2, self.d))
-    }
-
     /// The point at time t in the curve.
     fn point(&self, t: f32) -> Point {
         let tm = 1.0 - t;
@@ -86,24 +55,6 @@ impl CubeCurve {
         let x = a * self.a.x + b * self.b.x + c * self.c.x + d * self.d.x;
         let y = a * self.a.y + b * self.b.y + c * self.c.y + d * self.d.y;
         Point::new(x, y)
-    }
-
-    /// The slope of the tangent line at time t.
-    fn slope(&self, t: f32) -> (f32, f32) {
-        let tm = 1.0 - t;
-        let a = 3.0 * (tm * tm);
-        let b = 6.0 * tm * t;
-        let c = 3.0 * (t * t);
-
-        let x = a * (self.b.x - self.a.x) + b * (self.c.x - self.b.x) + c * (self.d.x - self.c.x);
-        let y = a * (self.b.y - self.a.y) + b * (self.c.y - self.b.y) + c * (self.d.y - self.c.y);
-        (x, y)
-    }
-
-    /// The angle of the tangent line at time t in rads.
-    fn angle(&self, t: f32) -> f32 {
-        let (x, y) = self.slope(t);
-        abs(atan2(x, y))
     }
 }
 
@@ -123,33 +74,6 @@ impl QuadCurve {
         }
     }
 
-    fn scale(&self, scale: f32) -> QuadCurve {
-        QuadCurve {
-            a: self.a.scale(scale),
-            b: self.b.scale(scale),
-            c: self.c.scale(scale),
-        }
-    }
-
-    fn is_flat(&self, threshold: f32) -> bool {
-        let (d1, d2, d3, _) = f32x4::new(
-            self.a.distance_squared(self.b),
-            self.b.distance_squared(self.c),
-            self.a.distance_squared(self.c),
-            1.0,
-        )
-        .sqrt()
-        .copied();
-        (d1 + d2) < threshold * d3
-    }
-
-    fn split(&self) -> (QuadCurve, QuadCurve) {
-        let q0 = self.a.midpoint(self.b);
-        let q1 = self.b.midpoint(self.c);
-        let r0 = q0.midpoint(q1);
-        (QuadCurve::new(self.a, q0, r0), QuadCurve::new(r0, q1, self.c))
-    }
-
     /// The point at time t in the curve.
     fn point(&self, t: f32) -> Point {
         let tm = 1.0 - t;
@@ -160,23 +84,6 @@ impl QuadCurve {
         let x = a * self.a.x + b * self.b.x + c * self.c.x;
         let y = a * self.a.y + b * self.b.y + c * self.c.y;
         Point::new(x, y)
-    }
-
-    /// The slope of the tangent line at time t.
-    fn slope(&self, t: f32) -> (f32, f32) {
-        let tm = 1.0 - t;
-        let a = 2.0 * tm;
-        let b = 2.0 * t;
-
-        let x = a * (self.b.x - self.a.x) + b * (self.c.x - self.b.x);
-        let y = a * (self.b.y - self.a.y) + b * (self.c.y - self.b.y);
-        (x, y)
-    }
-
-    /// The angle of the tangent line at time t in rads.
-    fn angle(&self, t: f32) -> f32 {
-        let (x, y) = self.slope(t);
-        abs(atan2(x, y))
     }
 }
 
