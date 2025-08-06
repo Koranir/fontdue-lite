@@ -1,6 +1,6 @@
 [package]
 name = "fontdue-lite"
-version = "0.9.3"
+version = "0.9.3+lite"
 authors = ["Joe Cumbo <mooman219@gmail.com>"]
 license = "MIT OR Apache-2.0 OR Zlib"
 documentation = "https://docs.rs/fontdue"
@@ -17,9 +17,6 @@ exclude = ["dev/**"]
 maintenance = { status = "experimental" }
 
 [features]
-# If using no default features, you must enable either hashbrown or std.
 default = ["simd"]
 # Enable this flag to leverage SIMD usage on x86/x86_64 platforms.
 simd = []
-
-[dependencies]
