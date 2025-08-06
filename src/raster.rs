@@ -4,9 +4,9 @@
  * is safe. Please be aware of this.
  */
 
-use crate::math::Line;
+use crate::math::{FinalizedGeometry, Line};
 use crate::platform::{abs, as_i32, copysign, f32x4, fract};
-use crate::Glyph;
+// use crate::Glyph;
 use alloc::vec;
 use alloc::vec::*;
 
@@ -25,14 +25,21 @@ impl Raster {
         }
     }
 
-    pub(crate) fn draw(&mut self, glyph: &Glyph, scale_x: f32, scale_y: f32, offset_x: f32, offset_y: f32) {
+    pub fn load(
+        &mut self,
+        geom: &FinalizedGeometry,
+        scale_x: f32,
+        scale_y: f32,
+        offset_x: f32,
+        offset_y: f32,
+    ) {
         let params = f32x4::new(1.0 / scale_x, 1.0 / scale_y, scale_x, scale_y);
         let scale = f32x4::new(scale_x, scale_y, scale_x, scale_y);
         let offset = f32x4::new(offset_x, offset_y, offset_x, offset_y);
-        for line in &glyph.v_lines {
+        for line in &geom.v_lines {
             self.v_line(line, line.coords * scale + offset);
         }
-        for line in &glyph.m_lines {
+        for line in &geom.m_lines {
             self.m_line(line, line.coords * scale + offset, line.params * params);
         }
     }

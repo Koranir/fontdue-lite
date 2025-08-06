@@ -1,5 +1,5 @@
 use crate::platform::{self, abs, atan2, f32x4, sqrt};
-use crate::{Glyph, OutlineBounds};
+// use crate::{Glyph, OutlineBounds};
 use alloc::vec;
 use alloc::vec::*;
 
@@ -322,6 +322,23 @@ pub struct Geometry {
     max_area: f32,
 }
 
+pub struct FinalizedGeometry {
+    pub v_lines: Vec<Line>,
+    pub m_lines: Vec<Line>,
+    pub xmin: f32,
+    pub xmax: f32,
+    pub ymin: f32,
+    pub ymax: f32,
+}
+
+pub trait OutlineBuilder {
+    fn close(&mut self);
+    fn curve_to(&mut self, x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32);
+    fn quad_to(&mut self, x0: f32, y0: f32, x1: f32, y1: f32);
+    fn line_to(&mut self, x0: f32, y0: f32);
+    fn move_to(&mut self, x0: f32, y0: f32);
+}
+
 struct Segment {
     a: Point,
     at: f32,
@@ -340,7 +357,7 @@ impl Segment {
     }
 }
 
-impl ttf_parser::OutlineBuilder for Geometry {
+impl OutlineBuilder for Geometry {
     fn move_to(&mut self, x0: f32, y0: f32) {
         let next_point = Point::new(x0, y0);
         self.start_point = next_point;
@@ -428,6 +445,30 @@ impl Geometry {
         }
     }
 
+    pub fn reset(scale: f32, units_per_em: f32, mut geom: FinalizedGeometry) -> Self {
+        const ERROR_THRESHOLD: f32 = 3.0; // In pixels.
+        let max_area = ERROR_THRESHOLD * 2.0 * (units_per_em / scale);
+
+        geom.m_lines.clear();
+        geom.v_lines.clear();
+
+        Geometry {
+            v_lines: geom.v_lines,
+            m_lines: geom.m_lines,
+            effective_bounds: AABB {
+                xmin: core::f32::MAX,
+                xmax: core::f32::MIN,
+                ymin: core::f32::MAX,
+                ymax: core::f32::MIN,
+            },
+            start_point: Point::default(),
+            previous_point: Point::default(),
+            area: 0.0,
+            reverse_points: false,
+            max_area,
+        }
+    }
+
     fn push(&mut self, start: Point, end: Point) {
         // We're using to_bits here because we only care if they're _exactly_ the same.
         if start.y.to_bits() != end.y.to_bits() {
@@ -442,7 +483,7 @@ impl Geometry {
         }
     }
 
-    pub(crate) fn finalize(mut self, glyph: &mut Glyph) {
+    pub fn finalize(mut self) -> FinalizedGeometry {
         if self.v_lines.is_empty() && self.m_lines.is_empty() {
             self.effective_bounds = AABB::default();
         } else {
@@ -450,17 +491,16 @@ impl Geometry {
             for line in self.v_lines.iter_mut().chain(self.m_lines.iter_mut()) {
                 line.reposition(self.effective_bounds, self.reverse_points);
             }
-            self.v_lines.shrink_to_fit();
-            self.m_lines.shrink_to_fit();
         }
-        glyph.v_lines = self.v_lines;
-        glyph.m_lines = self.m_lines;
-        glyph.bounds = OutlineBounds {
+
+        FinalizedGeometry {
+            v_lines: self.v_lines,
+            m_lines: self.m_lines,
             xmin: self.effective_bounds.xmin,
+            xmax: self.effective_bounds.xmax,
             ymin: self.effective_bounds.ymin,
-            width: self.effective_bounds.xmax - self.effective_bounds.xmin,
-            height: self.effective_bounds.ymax - self.effective_bounds.ymin,
-        };
+            ymax: self.effective_bounds.ymax,
+        }
     }
 
     fn recalculate_bounds(bounds: &mut AABB, x: f32, y: f32) {

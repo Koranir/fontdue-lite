@@ -1,9 +1,9 @@
-use crate::layout::GlyphRasterConfig;
+// use crate::layout::GlyphRasterConfig;
 use crate::math::{Geometry, Line};
 use crate::platform::{as_i32, ceil, floor, fract, is_negative};
 use crate::raster::Raster;
-use crate::table::{load_gsub, TableKern};
-use crate::unicode;
+// use crate::table::{load_gsub, TableKern};
+// use crate::unicode;
 use crate::FontResult;
 use crate::{HashMap, HashSet};
 use alloc::string::String;
@@ -139,9 +139,9 @@ impl LineMetrics {
 pub(crate) struct Glyph {
     pub v_lines: Vec<Line>,
     pub m_lines: Vec<Line>,
-    advance_width: f32,
-    advance_height: f32,
-    pub bounds: OutlineBounds,
+    // advance_width: f32,
+    // advance_height: f32,
+    // pub bounds: OutlineBounds,
 }
 
 impl Default for Glyph {
@@ -149,9 +149,9 @@ impl Default for Glyph {
         Glyph {
             v_lines: Vec::new(),
             m_lines: Vec::new(),
-            advance_width: 0.0,
-            advance_height: 0.0,
-            bounds: OutlineBounds::default(),
+            // advance_width: 0.0,
+            // advance_height: 0.0,
+            // bounds: OutlineBounds::default(),
         }
     }
 }
@@ -228,14 +228,14 @@ fn convert_error(error: FaceParsingError) -> &'static str {
     }
 }
 
-fn convert_name(face: &Face) -> Option<String> {
-    for name in face.names() {
-        if name.name_id == 4 && name.is_unicode() {
-            return Some(unicode::decode_utf16(name.name));
-        }
-    }
-    None
-}
+// fn convert_name(face: &Face) -> Option<String> {
+//     for name in face.names() {
+//         if name.name_id == 4 && name.is_unicode() {
+//             return Some(unicode::decode_utf16(name.name));
+//         }
+//     }
+//     None
+// }
 
 impl Font {
     /// Constructs a font from an array of bytes.
@@ -246,14 +246,14 @@ impl Font {
             Ok(f) => f,
             Err(e) => return Err(convert_error(e)),
         };
-        let name = convert_name(&face);
+        // let name = convert_name(&face);
 
         // Optionally get kerning values for the font. This should be a try block in the future.
-        let horizontal_kern: Option<HashMap<u32, i16>> = (|| {
-            let table: &[u8] = face.raw_face().table(Tag::from_bytes(&b"kern"))?;
-            let table: TableKern = TableKern::new(table)?;
-            Some(table.horizontal_mappings)
-        })();
+        // let horizontal_kern: Option<HashMap<u32, i16>> = (|| {
+        //     let table: &[u8] = face.raw_face().table(Tag::from_bytes(&b"kern"))?;
+        //     let table: TableKern = TableKern::new(table)?;
+        //     Some(table.horizontal_mappings)
+        // })();
 
         // Collect all the unique codepoint to glyph mappings.
         let glyph_count = face.number_of_glyphs();
@@ -274,9 +274,9 @@ impl Font {
         }
 
         // If the gsub table exists and the user needs it, add all of its glyphs to the glyphs we should load.
-        if settings.load_substitutions {
-            load_gsub(&face, &mut indices_to_load);
-        }
+        // if settings.load_substitutions {
+        //     load_gsub(&face, &mut indices_to_load);
+        // }
 
         let units_per_em = face.units_per_em() as f32;
 
@@ -290,12 +290,12 @@ impl Font {
 
             let mut glyph = Glyph::default();
             let glyph_id = GlyphId(index);
-            if let Some(advance_width) = face.glyph_hor_advance(glyph_id) {
-                glyph.advance_width = advance_width as f32;
-            }
-            if let Some(advance_height) = face.glyph_ver_advance(glyph_id) {
-                glyph.advance_height = advance_height as f32;
-            }
+            // if let Some(advance_width) = face.glyph_hor_advance(glyph_id) {
+            //     glyph.advance_width = advance_width as f32;
+            // }
+            // if let Some(advance_height) = face.glyph_ver_advance(glyph_id) {
+            //     glyph.advance_height = advance_height as f32;
+            // }
 
             let mut geometry = Geometry::new(settings.scale, units_per_em);
             face.outline_glyph(glyph_id, &mut geometry);
