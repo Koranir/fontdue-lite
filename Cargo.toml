@@ -1,5 +1,5 @@
 [package]
-name = "fontdue"
+name = "fontdue-lite"
 version = "0.9.3"
 authors = ["Joe Cumbo <mooman219@gmail.com>"]
 license = "MIT OR Apache-2.0 OR Zlib"
