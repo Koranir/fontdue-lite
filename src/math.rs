@@ -331,9 +331,9 @@ impl OutlineBuilder for Geometry {
 
 impl Geometry {
     // Artisanal bespoke hand carved curves
-    pub fn new(scale: f32, units_per_em: f32) -> Geometry {
+    pub fn new(ppem: f32) -> Geometry {
         const ERROR_THRESHOLD: f32 = 3.0; // In pixels.
-        let max_area = ERROR_THRESHOLD * 2.0 * (units_per_em / scale);
+        let max_area = ERROR_THRESHOLD * 2.0 / ppem;
 
         Geometry {
             v_lines: Vec::new(),
@@ -352,27 +352,14 @@ impl Geometry {
         }
     }
 
-    pub fn reset(scale: f32, units_per_em: f32, mut geom: FinalizedGeometry) -> Self {
-        const ERROR_THRESHOLD: f32 = 3.0; // In pixels.
-        let max_area = ERROR_THRESHOLD * 2.0 * (units_per_em / scale);
-
+    pub fn reset(ppem: f32, mut geom: FinalizedGeometry) -> Self {
         geom.m_lines.clear();
         geom.v_lines.clear();
 
         Geometry {
             v_lines: geom.v_lines,
             m_lines: geom.m_lines,
-            effective_bounds: AABB {
-                xmin: core::f32::MAX,
-                xmax: core::f32::MIN,
-                ymin: core::f32::MAX,
-                ymax: core::f32::MIN,
-            },
-            start_point: Point::default(),
-            previous_point: Point::default(),
-            area: 0.0,
-            reverse_points: false,
-            max_area,
+            ..Geometry::new(ppem)
         }
     }
 
